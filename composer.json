@@ -1,0 +1,43 @@
+{
+  "name": "klarsmith/wp-ops-kit",
+  "description": "Honest readiness, Prometheus metrics, structured JSON logs and drift detection for containerised WordPress.",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "keywords": ["wordpress", "kubernetes", "prometheus", "observability", "healthcheck"],
+  "authors": [
+    {
+      "name": "Margus Heinmaa",
+      "email": "margus@klarsmith.com",
+      "homepage": "https://klarsmith.com"
+    }
+  ],
+  "require": {
+    "php": ">=8.3",
+    "composer/installers": "^2.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^11.0",
+    "brain/monkey": "^2.6"
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "WPOpsKit\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "installer-name": "wp-ops-kit"
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "composer/installers": true
+    },
+    "platform": {
+      "php": "8.3.0"
+    }
+  },
+  "scripts": {
+    "test": "phpunit",
+    "lint": "find wp-ops-kit.php includes -name '*.php' -print0 | xargs -0 -n1 php -l"
+  }
+}

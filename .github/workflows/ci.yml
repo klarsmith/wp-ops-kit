@@ -1,0 +1,62 @@
+name: CI
+
+# Lint + unit tests on every push and pull request, under every PHP the plugin
+# claims to support: 8.3 is the floor declared in composer.json, 8.5 is what
+# wp-base actually ships.
+#
+# Steps shell out to docker rather than using a job-level `container:` — the
+# arc-dind runners have a Docker daemon, and it keeps CI byte-identical to the
+# command you run locally.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: arc-dind
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.3", "8.4", "8.5"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint
+        run: |
+          docker run --rm -v "$PWD":/app -w /app "php:${{ matrix.php }}-cli" \
+            sh -c 'find wp-ops-kit.php includes tests -name "*.php" -print0 | xargs -0 -n1 php -l'
+
+      - name: Install dependencies
+        run: |
+          docker run --rm -v "$PWD":/app -w /app composer:2 \
+            install --no-interaction --no-progress --prefer-dist
+
+      # opcache.enable_cli surfaces the wp_ops_pod_opcache_* branch, which would
+      # otherwise be skipped and silently untested.
+      - name: Unit tests
+        run: |
+          docker run --rm -v "$PWD":/app -w /app "php:${{ matrix.php }}-cli" \
+            php -d opcache.enable_cli=1 vendor/bin/phpunit
+
+  coverage:
+    runs-on: arc-dind
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          docker run --rm -v "$PWD":/app -w /app composer:2 \
+            install --no-interaction --no-progress --prefer-dist
+
+      - name: Coverage summary
+        run: |
+          docker run --rm -v "$PWD":/app -w /app php:8.4-cli sh -c '
+            pecl install pcov > /dev/null 2>&1 && docker-php-ext-enable pcov
+            php -d pcov.enabled=1 -d pcov.directory=/app/includes -d opcache.enable_cli=1 \
+              vendor/bin/phpunit --coverage-text
+          ' | sed -n "/Code Coverage Report/,\$p" | tee -a "$GITHUB_STEP_SUMMARY"
