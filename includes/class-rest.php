@@ -131,6 +131,12 @@ final class Rest {
         // Serve raw exposition text instead of the JSON the REST server would
         // otherwise wrap it in, while still letting WordPress shut down cleanly.
         add_filter( 'rest_pre_serve_request', static function ( $served ) use ( $text ) {
+            // Another handler may already have written the response. Appending
+            // exposition to it would corrupt both, so defer rather than echo.
+            if ( $served ) {
+                return $served;
+            }
+
             header( 'Content-Type: text/plain; version=0.0.4; charset=utf-8' );
             header( 'Cache-Control: no-store' );
             echo $text; // phpcs:ignore WordPress.Security.EscapeOutput -- Prometheus exposition, not HTML.

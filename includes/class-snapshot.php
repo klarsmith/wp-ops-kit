@@ -61,9 +61,22 @@ final class Snapshot {
         foreach ( get_post_types( ['public' => true], 'names' ) as $type ) {
             $counts = (array) wp_count_posts( $type );
             foreach ( ['publish', 'draft', 'pending', 'private', 'trash'] as $status ) {
-                if ( isset( $counts[ $status ] ) ) {
-                    $out[ $type ][ $status ] = (int) $counts[ $status ];
+                if ( ! isset( $counts[ $status ] ) ) {
+                    continue;
                 }
+
+                $count = (int) $counts[ $status ];
+
+                // `publish` is always kept, even at zero: a series that stops
+                // being emitted reads as stale in Prometheus rather than as 0,
+                // and "the content disappeared" is the one thing here worth
+                // alerting on. The other statuses at zero are pure noise — on
+                // our own fleet they were 26 of 39 exported series.
+                if ( 0 === $count && 'publish' !== $status ) {
+                    continue;
+                }
+
+                $out[ $type ][ $status ] = $count;
             }
         }
 
