@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<ruleset name="WP Ops Kit">
+    <description>WordPress Coding Standards for the plugin code (tests are exercised by PHPUnit, not sniffed).</description>
+
+    <file>wp-ops-kit.php</file>
+    <file>includes</file>
+
+    <arg name="extensions" value="php"/>
+    <arg name="colors"/>
+    <arg value="sp"/>
+
+    <rule ref="WordPress"/>
+
+    <config name="minimum_supported_wp_version" value="6.4"/>
+    <config name="testVersion" value="8.3-"/>
+
+    <rule ref="WordPress.WP.I18n">
+        <properties>
+            <property name="text_domain" type="array">
+                <element value="wp-ops-kit"/>
+            </property>
+        </properties>
+    </rule>
+    <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+        <properties>
+            <property name="prefixes" type="array">
+                <element value="wp_ops"/>
+                <element value="WP_OPS"/>
+                <element value="WPOpsKit"/>
+            </property>
+        </properties>
+    </rule>
+</ruleset>

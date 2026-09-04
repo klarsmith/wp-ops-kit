@@ -123,3 +123,33 @@ class WP_CLI {
         self::$output   = [];
     }
 }
+
+// Sanitisation helpers the plugin calls on $_SERVER reads. Brain Monkey only
+// stubs the escaping/translation families, so these mirror core semantics:
+// wp_unslash() = stripslashes_deep(), sanitize_text_field() = strip tags,
+// strip control octets, collapse whitespace, trim.
+if ( ! function_exists( 'wp_unslash' ) ) {
+    function wp_unslash( mixed $value ): mixed {
+        if ( is_array( $value ) ) {
+            return array_map( 'wp_unslash', $value );
+        }
+
+        return is_string( $value ) ? stripslashes( $value ) : $value;
+    }
+}
+
+if ( ! function_exists( 'sanitize_text_field' ) ) {
+    function sanitize_text_field( mixed $str ): string {
+        $filtered = strip_tags( (string) $str );
+        $filtered = preg_replace( '/[\r\n\t ]+/', ' ', $filtered ) ?? '';
+        $filtered = preg_replace( '/[\x00-\x1F\x7F]/', '', $filtered ) ?? '';
+
+        return trim( $filtered );
+    }
+}
+
+if ( ! function_exists( 'wp_parse_url' ) ) {
+    function wp_parse_url( string $url, int $component = -1 ): mixed {
+        return parse_url( $url, $component );
+    }
+}

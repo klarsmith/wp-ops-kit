@@ -9,12 +9,14 @@
  * License:     GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Requires PHP: 8.3
+ *
+ * @package WPOpsKit
  */
 
 declare(strict_types=1);
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
 }
 
 define( 'WP_OPS_KIT_VERSION', '0.1.2' );
@@ -32,7 +34,10 @@ require_once $wp_ops_includes . 'class-cli.php';
 // thing we most want captured, and by plugins_loaded we may already be too late.
 WPOpsKit\Logger::init();
 
-add_action( 'plugins_loaded', static function (): void {
-    WPOpsKit\Rest::init();
-    WPOpsKit\Cli::init();
-} );
+add_action(
+	'plugins_loaded',
+	static function (): void {
+		WPOpsKit\Rest::init();
+		WPOpsKit\Cli::init();
+	}
+);

@@ -1,11 +1,16 @@
 <?php
+/**
+ * Readiness checks behind /wp-json/ops/v1/readyz.
+ *
+ * @package WPOpsKit
+ */
 
 declare(strict_types=1);
 
 namespace WPOpsKit;
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
 }
 
 /**
@@ -16,152 +21,206 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Checks {
 
-    /**
-     * @return array<string, array{ok: bool, detail: string}>
-     */
-    public static function run(): array {
-        $results = [
-            'db'            => self::db(),
-            'db_schema'     => self::db_schema(),
-            'object_cache'  => self::object_cache(),
-            'uploads'       => self::uploads_writable(),
-        ];
+	/**
+	 * Run every readiness check and return the results keyed by check name.
+	 *
+	 * @return array<string, array{ok: bool, detail: string}>
+	 */
+	public static function run(): array {
+		$results = array(
+			'db'           => self::db(),
+			'db_schema'    => self::db_schema(),
+			'object_cache' => self::object_cache(),
+			'uploads'      => self::uploads_writable(),
+		);
 
-        $required = Config::list( 'WP_OPS_REQUIRED_PLUGINS' );
-        if ( [] !== $required ) {
-            $results['required_plugins'] = self::required_plugins( $required );
-        }
+		$required = Config::list( 'WP_OPS_REQUIRED_PLUGINS' );
+		if ( array() !== $required ) {
+			$results['required_plugins'] = self::required_plugins( $required );
+		}
 
-        return $results;
-    }
+		return $results;
+	}
 
-    /** @param array<string, array{ok: bool, detail: string}> $results */
-    public static function all_passed( array $results ): bool {
-        foreach ( $results as $result ) {
-            if ( ! $result['ok'] ) {
-                return false;
-            }
-        }
+	/**
+	 * Whether every check in a result set passed.
+	 *
+	 * @param array<string, array{ok: bool, detail: string}> $results Output of run().
+	 * @return bool
+	 */
+	public static function all_passed( array $results ): bool {
+		foreach ( $results as $result ) {
+			if ( ! $result['ok'] ) {
+				return false;
+			}
+		}
 
-        return true;
-    }
+		return true;
+	}
 
-    /** @param array<string, array{ok: bool, detail: string}> $results @return list<string> */
-    public static function failed_names( array $results ): array {
-        $failed = [];
-        foreach ( $results as $name => $result ) {
-            if ( ! $result['ok'] ) {
-                $failed[] = $name;
-            }
-        }
+	/**
+	 * Names of the checks that failed, in run() order.
+	 *
+	 * @param array<string, array{ok: bool, detail: string}> $results Output of run().
+	 * @return list<string>
+	 */
+	public static function failed_names( array $results ): array {
+		$failed = array();
+		foreach ( $results as $name => $result ) {
+			if ( ! $result['ok'] ) {
+				$failed[] = $name;
+			}
+		}
 
-        return $failed;
-    }
+		return $failed;
+	}
 
-    private static function ok( string $detail = '' ): array {
-        return ['ok' => true, 'detail' => $detail];
-    }
+	/**
+	 * Build a passing result.
+	 *
+	 * @param string $detail Optional operator-facing detail.
+	 * @return array{ok: bool, detail: string}
+	 */
+	private static function ok( string $detail = '' ): array {
+		return array(
+			'ok'     => true,
+			'detail' => $detail,
+		);
+	}
 
-    private static function fail( string $detail ): array {
-        return ['ok' => false, 'detail' => $detail];
-    }
+	/**
+	 * Build a failing result.
+	 *
+	 * @param string $detail Why the check failed.
+	 * @return array{ok: bool, detail: string}
+	 */
+	private static function fail( string $detail ): array {
+		return array(
+			'ok'     => false,
+			'detail' => $detail,
+		);
+	}
 
-    private static function db(): array {
-        global $wpdb;
+	/**
+	 * Database connection liveness: can we get a round trip at all?
+	 *
+	 * @return array{ok: bool, detail: string}
+	 */
+	private static function db(): array {
+		global $wpdb;
 
-        // Suppress errors so a dead DB gives us a clean false rather than a
-        // fatal inside the probe handler.
-        $suppress = $wpdb->suppress_errors( true );
-        $value    = $wpdb->get_var( 'SELECT 1' );
-        $wpdb->suppress_errors( $suppress );
+		// Suppress errors so a dead DB gives us a clean false rather than a
+		// fatal inside the probe handler.
+		$suppress = $wpdb->suppress_errors( true );
+		$value    = $wpdb->get_var( 'SELECT 1' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Connection liveness probe; there is nothing to cache and no API for it.
+		$wpdb->suppress_errors( $suppress );
 
-        return '1' === (string) $value
-            ? self::ok()
-            : self::fail( 'SELECT 1 failed: ' . ( $wpdb->last_error ?: 'no response' ) );
-    }
+		if ( '1' === (string) $value ) {
+			return self::ok();
+		}
 
-    /**
-     * The check nothing else does, and the one that matters most.
-     *
-     * When the schema version recorded in the database is behind the version
-     * baked into core, WordPress stops serving the site and redirects every
-     * request to the "database update required" interstitial. PHP-FPM is happy,
-     * the homepage returns 200, and the site is completely broken — so a pod in
-     * this state passes every probe in common use. It must not be ready.
-     */
-    private static function db_schema(): array {
-        global $wp_db_version;
+		$reason = '' !== $wpdb->last_error ? $wpdb->last_error : 'no response';
 
-        $installed = (int) get_option( 'db_version' );
-        $expected  = (int) $wp_db_version;
+		return self::fail( 'SELECT 1 failed: ' . $reason );
+	}
 
-        if ( 0 === $installed || 0 === $expected ) {
-            return self::fail( 'could not determine db_version' );
-        }
+	/**
+	 * The check nothing else does, and the one that matters most.
+	 *
+	 * When the schema version recorded in the database is behind the version
+	 * baked into core, WordPress stops serving the site and redirects every
+	 * request to the "database update required" interstitial. PHP-FPM is happy,
+	 * the homepage returns 200, and the site is completely broken — so a pod in
+	 * this state passes every probe in common use. It must not be ready.
+	 *
+	 * @return array{ok: bool, detail: string}
+	 */
+	private static function db_schema(): array {
+		global $wp_db_version;
 
-        return $installed === $expected
-            ? self::ok( (string) $installed )
-            : self::fail( sprintf( 'db_version %d != core %d (upgrade pending)', $installed, $expected ) );
-    }
+		$installed = (int) get_option( 'db_version' );
+		$expected  = (int) $wp_db_version;
 
-    /**
-     * A missing object-cache dropin is a performance cliff rather than an
-     * outage, so it only fails readiness when the deployment declares that it
-     * expects one. A configured-but-unreachable Redis always fails.
-     */
-    private static function object_cache(): array {
-        $expected = Config::bool( 'WP_OPS_EXPECT_OBJECT_CACHE', false );
-        $external = wp_using_ext_object_cache();
+		if ( 0 === $installed || 0 === $expected ) {
+			return self::fail( 'could not determine db_version' );
+		}
 
-        if ( ! $external ) {
-            return $expected
-                ? self::fail( 'external object cache expected but dropin is not active' )
-                : self::ok( 'internal' );
-        }
+		return $installed === $expected
+			? self::ok( (string) $installed )
+			: self::fail( sprintf( 'db_version %d != core %d (upgrade pending)', $installed, $expected ) );
+	}
 
-        $key   = 'wp_ops_probe';
-        $value = (string) microtime( true );
+	/**
+	 * A missing object-cache dropin is a performance cliff rather than an
+	 * outage, so it only fails readiness when the deployment declares that it
+	 * expects one. A configured-but-unreachable Redis always fails.
+	 *
+	 * @return array{ok: bool, detail: string}
+	 */
+	private static function object_cache(): array {
+		$expected = Config::bool( 'WP_OPS_EXPECT_OBJECT_CACHE', false );
+		$external = wp_using_ext_object_cache();
 
-        wp_cache_set( $key, $value, 'wp_ops_kit', 30 );
-        $read = wp_cache_get( $key, 'wp_ops_kit' );
+		if ( ! $external ) {
+			return $expected
+				? self::fail( 'external object cache expected but dropin is not active' )
+				: self::ok( 'internal' );
+		}
 
-        return $read === $value
-            ? self::ok( 'external' )
-            : self::fail( 'object cache roundtrip failed (backend unreachable?)' );
-    }
+		$key   = 'wp_ops_probe';
+		$value = (string) microtime( true );
 
-    private static function uploads_writable(): array {
-        // basedir is present even when the dir is unwritable; error is set when
-        // WordPress itself already failed to create it.
-        $uploads = wp_upload_dir( null, false );
+		wp_cache_set( $key, $value, 'wp_ops_kit', 30 );
+		$read = wp_cache_get( $key, 'wp_ops_kit' );
 
-        if ( ! empty( $uploads['error'] ) ) {
-            return self::fail( (string) $uploads['error'] );
-        }
+		return $read === $value
+			? self::ok( 'external' )
+			: self::fail( 'object cache roundtrip failed (backend unreachable?)' );
+	}
 
-        $dir = $uploads['basedir'] ?? '';
-        if ( '' === $dir || ! is_dir( $dir ) ) {
-            return self::fail( 'uploads basedir missing: ' . $dir );
-        }
+	/**
+	 * Whether the uploads base directory exists and is writable by PHP.
+	 *
+	 * @return array{ok: bool, detail: string}
+	 */
+	private static function uploads_writable(): array {
+		// basedir is present even when the dir is unwritable; error is set when
+		// WordPress itself already failed to create it.
+		$uploads = wp_upload_dir( null, false );
 
-        return is_writable( $dir ) ? self::ok() : self::fail( 'uploads not writable: ' . $dir );
-    }
+		if ( ! empty( $uploads['error'] ) ) {
+			return self::fail( (string) $uploads['error'] );
+		}
 
-    /** @param list<string> $required */
-    private static function required_plugins( array $required ): array {
-        if ( ! function_exists( 'is_plugin_active' ) ) {
-            require_once ABSPATH . 'wp-admin/includes/plugin.php';
-        }
+		$dir = $uploads['basedir'];
+		if ( '' === $dir || ! is_dir( $dir ) ) {
+			return self::fail( 'uploads basedir missing: ' . $dir );
+		}
 
-        $missing = [];
-        foreach ( $required as $plugin ) {
-            if ( ! is_plugin_active( $plugin ) ) {
-                $missing[] = $plugin;
-            }
-        }
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_is_writable -- Readiness must not depend on WP_Filesystem bootstrapping; a plain stat is the honest probe.
+		return is_writable( $dir ) ? self::ok() : self::fail( 'uploads not writable: ' . $dir );
+	}
 
-        return [] === $missing
-            ? self::ok( sprintf( '%d active', count( $required ) ) )
-            : self::fail( 'inactive: ' . implode( ', ', $missing ) );
-    }
+	/**
+	 * Every plugin the deployment declares as required must be active.
+	 *
+	 * @param array<int, string> $required Plugin basenames (dir/file.php).
+	 * @return array{ok: bool, detail: string}
+	 */
+	private static function required_plugins( array $required ): array {
+		if ( ! function_exists( 'is_plugin_active' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		$missing = array();
+		foreach ( $required as $plugin ) {
+			if ( ! is_plugin_active( $plugin ) ) {
+				$missing[] = $plugin;
+			}
+		}
+
+		return array() === $missing
+			? self::ok( sprintf( '%d active', count( $required ) ) )
+			: self::fail( 'inactive: ' . implode( ', ', $missing ) );
+	}
 }

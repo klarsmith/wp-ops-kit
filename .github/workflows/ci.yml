@@ -42,6 +42,26 @@ jobs:
           docker run --rm -v "$PWD":/app -w /app "php:${{ matrix.php }}-cli" \
             php -d opcache.enable_cli=1 vendor/bin/phpunit
 
+  static-analysis:
+    runs-on: arc-dind
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          docker run --rm -v "$PWD":/app -w /app composer:2 \
+            install --no-interaction --no-progress --prefer-dist
+
+      - name: Coding standards (phpcs)
+        run: |
+          docker run --rm -v "$PWD":/app -w /app php:8.4-cli \
+            php vendor/bin/phpcs
+
+      - name: Static analysis (phpstan)
+        run: |
+          docker run --rm -v "$PWD":/app -w /app php:8.4-cli \
+            php -d memory_limit=1G vendor/bin/phpstan analyse --no-progress
+
   coverage:
     runs-on: arc-dind
     needs: test
