@@ -1,0 +1,57 @@
+# VictoriaMetrics operator: the same four alerts as ../prometheus/alert-rules-plain.yml
+# as a VMRule, for clusters that run vmalert in-cluster via the operator. With
+# `selectAllByDefault: true` on the VMAlert object it is picked up from any
+# namespace; otherwise match its ruleSelector/ruleNamespaceSelector.
+#
+# Series carry no `site` label — WP_OPS_SITE_NAME only tags log records — so the
+# scraper's `namespace` label is the site identity. 900s of snapshot age = three
+# missed 5-minute collector runs.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: wordpress-ops
+  labels:
+    app: wordpress
+spec:
+  groups:
+    - name: wordpress-ops
+      interval: 1m
+      rules:
+        - alert: WpOpsSnapshotStale
+          expr: max by (namespace) (wp_ops_snapshot_age_seconds) > 900
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "wp-ops-kit snapshot stale in {{ $labels.namespace }}"
+            description: "The metrics snapshot is {{ $value | humanizeDuration }} old (collector runs every 5m). Check: kubectl -n {{ $labels.namespace }} get cronjob,jobs | grep wp-ops-collect"
+  
+        - alert: WpOpsSnapshotNeverCollected
+          expr: max by (namespace) (wp_ops_snapshot_age_seconds) == -1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "wp-ops-kit has never collected a snapshot in {{ $labels.namespace }}"
+            description: "wp_ops_snapshot_age_seconds is -1: the wp-ops-collect CronJob has not run successfully since the object cache was last emptied. Check: kubectl -n {{ $labels.namespace }} get cronjob wp-ops-collect"
+  
+        # job="wordpress" because the scraped Service is named `wordpress` (the
+        # operators set `job` to the Service name; the plain scrape config sets
+        # job_name: wordpress to match). Rename here if your Service differs.
+        - alert: WpOpsMetricsScrapeDown
+          expr: max by (namespace, pod) (up{job="wordpress"}) == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "wp-ops-kit metrics scrape failing for {{ $labels.namespace }}/{{ $labels.pod }}"
+            description: "vmagent cannot read /wp-json/ops/v1/metrics. A wrong WP_OPS_TOKEN answers 404 (not 401), so check the token in the namespace's wp-ops-token Secret first, then the pod: kubectl -n {{ $labels.namespace }} describe pod {{ $labels.pod }}"
+  
+        - alert: WpOpsSiteNotReady
+          expr: max by (namespace) (wp_ops_up) == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "WordPress in {{ $labels.namespace }} reports not ready"
+            description: "wp_ops_up is 0: one of the readiness checks (db, db_schema, object_cache, uploads, required_plugins) is failing and the readiness probe is draining the pod. Check: curl -s https://<site>/wp-json/ops/v1/readyz and kubectl -n {{ $labels.namespace }} get pods"

@@ -1,0 +1,12 @@
+# Keep the Composer/GitHub archive to what a site needs at runtime.
+# examples/ and CHANGELOG.md are shipped on purpose.
+/tests/              export-ignore
+/.github/            export-ignore
+/.phpcs.xml.dist     export-ignore
+/phpstan.neon.dist   export-ignore
+/phpunit.xml.dist    export-ignore
+/phpunit.xml         export-ignore
+/.gitattributes      export-ignore
+/.gitignore          export-ignore
+
+* text=auto

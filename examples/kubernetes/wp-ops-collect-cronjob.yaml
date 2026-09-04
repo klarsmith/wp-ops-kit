@@ -1,0 +1,59 @@
+# wp-ops-kit collector — refreshes the metrics snapshot in the object cache that
+# every pod's /wp-json/ops/v1/metrics serves from. Without it the exposition never
+# changes and wp_ops_snapshot_age_seconds climbs (alert on that; see ../prometheus
+# and ../victoriametrics). The snapshot deliberately never expires, so a dead
+# collector makes the numbers go stale rather than disappear.
+#
+# Runs `wp ops collect` in the same image and with the same environment as the
+# WordPress pods — it bootstraps WordPress, so it needs the DB and object-cache
+# credentials. `--path` is the WordPress root relative to the container workdir.
+# uid/gid 82 is www-data in php:*-fpm-alpine; adjust for your base image.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: wp-ops-collect
+  labels:
+    app: wordpress
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 120
+      # Auto-delete finished Jobs so one transient failure cannot page for days.
+      ttlSecondsAfterFinished: 600
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 82
+            runAsGroup: 82
+            fsGroup: 82
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: wp-ops-collect
+              image: your-registry/your-wp-image:tag
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              command:
+                - wp
+                - ops
+                - collect
+                - --path=public_html/wp
+              envFrom:
+                - configMapRef:
+                    name: wordpress-config
+                - secretRef:
+                    name: wordpress-secrets
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 384Mi
