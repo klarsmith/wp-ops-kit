@@ -16,8 +16,13 @@
     "composer/installers": "^2.0"
   },
   "require-dev": {
+    "brain/monkey": "^2.6",
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+    "php-stubs/wp-cli-stubs": "^2.11",
+    "phpstan/phpstan": "^2.1",
     "phpunit/phpunit": "^11.0",
-    "brain/monkey": "^2.6"
+    "szepeviktor/phpstan-wordpress": "^2.0",
+    "wp-coding-standards/wpcs": "^3.1"
   },
   "autoload-dev": {
     "psr-4": {
@@ -30,7 +35,8 @@
   "config": {
     "sort-packages": true,
     "allow-plugins": {
-      "composer/installers": true
+      "composer/installers": true,
+      "dealerdirect/phpcodesniffer-composer-installer": true
     },
     "platform": {
       "php": "8.3.0"
@@ -38,6 +44,9 @@
   },
   "scripts": {
     "test": "phpunit",
-    "lint": "find wp-ops-kit.php includes -name '*.php' -print0 | xargs -0 -n1 php -l"
+    "lint": "phpcs",
+    "lint:fix": "phpcbf",
+    "analyse": "phpstan analyse --no-progress",
+    "syntax": "find wp-ops-kit.php includes -name '*.php' -print0 | xargs -0 -n1 php -l"
   }
 }

@@ -1,11 +1,16 @@
 <?php
+/**
+ * REST endpoints: /wp-json/ops/v1/readyz and /wp-json/ops/v1/metrics.
+ *
+ * @package WPOpsKit
+ */
 
 declare(strict_types=1);
 
 namespace WPOpsKit;
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
 }
 
 /**
@@ -20,146 +25,187 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Rest {
 
-    private const NS = 'ops/v1';
+	private const NS = 'ops/v1';
 
-    public static function init(): void {
-        // Priority 1 so the decision is made before site-level lockdowns run. A
-        // theme or security plugin returning a blanket WP_Error for anonymous
-        // callers is common on hardened installs, and it would otherwise block
-        // the probes silently — the exact failure this plugin exists to remove.
-        add_filter( 'rest_authentication_errors', [self::class, 'allow_anonymous_access'], 1 );
-        add_action( 'rest_api_init', [self::class, 'register_routes'] );
-    }
+	/**
+	 * Hook the anonymous-access filter and route registration.
+	 */
+	public static function init(): void {
+		// Priority 1 so the decision is made before site-level lockdowns run. A
+		// theme or security plugin returning a blanket WP_Error for anonymous
+		// callers is common on hardened installs, and it would otherwise block
+		// the probes silently — the exact failure this plugin exists to remove.
+		add_filter( 'rest_authentication_errors', array( self::class, 'allow_anonymous_access' ), 1 );
+		add_action( 'rest_api_init', array( self::class, 'register_routes' ) );
+	}
 
-    /**
-     * Assert that this plugin's own two routes are reachable without a session.
-     *
-     * kubelet carries no cookie and Prometheus carries no nonce, so a blanket
-     * "REST is for logged-in users only" filter takes the probes down with it.
-     * The scope is deliberately narrow: only this plugin's namespace, only when
-     * no earlier filter has already decided, and the routes protect themselves —
-     * anonymous readyz returns check names without detail, and metrics 404s
-     * unless a token is configured and presented.
-     *
-     * Returning null here would be a no-op: null is the "undecided" value the
-     * chain starts with, so a later filter would still run and block the request.
-     * It has to be true.
-     *
-     * Set WP_OPS_REST_BYPASS_AUTH=false to leave the site's own rules in charge,
-     * accepting that the endpoints may then be unreachable.
-     *
-     * @param  WP_Error|bool|null $result
-     * @return WP_Error|bool|null
-     */
-    public static function allow_anonymous_access( $result ) {
-        // Never override a decision another filter has already made.
-        if ( null !== $result ) {
-            return $result;
-        }
+	/**
+	 * Assert that this plugin's own two routes are reachable without a session.
+	 *
+	 * The kubelet carries no cookie and Prometheus carries no nonce, so a blanket
+	 * "REST is for logged-in users only" filter takes the probes down with it.
+	 * The scope is deliberately narrow: only this plugin's namespace, only when
+	 * no earlier filter has already decided, and the routes protect themselves —
+	 * anonymous readyz returns check names without detail, and metrics 404s
+	 * unless a token is configured and presented.
+	 *
+	 * Returning null here would be a no-op: null is the "undecided" value the
+	 * chain starts with, so a later filter would still run and block the request.
+	 * It has to be true.
+	 *
+	 * Set WP_OPS_REST_BYPASS_AUTH=false to leave the site's own rules in charge,
+	 * accepting that the endpoints may then be unreachable.
+	 *
+	 * @param \WP_Error|bool|null $result Decision made by an earlier filter, or null if none.
+	 * @return \WP_Error|bool|null
+	 */
+	public static function allow_anonymous_access( $result ) {
+		// Never override a decision another filter has already made.
+		if ( null !== $result ) {
+			return $result;
+		}
 
-        if ( ! Config::bool( 'WP_OPS_REST_BYPASS_AUTH', true ) || ! self::is_own_route() ) {
-            return $result;
-        }
+		if ( ! Config::bool( 'WP_OPS_REST_BYPASS_AUTH', true ) || ! self::is_own_route() ) {
+			return $result;
+		}
 
-        return true;
-    }
+		return true;
+	}
 
-    /**
-     * Both signals are needed: query_vars is the reliable one but is not always
-     * populated this early, and REQUEST_URI survives prefixes that plugins add
-     * to the REST root (WPML, for instance, serves /en/wp-json/...).
-     */
-    private static function is_own_route(): bool {
-        $route = $GLOBALS['wp']->query_vars['rest_route'] ?? '';
-        if ( is_string( $route ) && str_starts_with( $route, '/' . self::NS . '/' ) ) {
-            return true;
-        }
+	/**
+	 * Whether the current request targets this plugin's REST namespace.
+	 *
+	 * Both signals are needed: query_vars is the reliable one but is not always
+	 * populated this early, and REQUEST_URI survives prefixes that plugins add
+	 * to the REST root (WPML, for instance, serves /en/wp-json/...).
+	 *
+	 * @return bool
+	 */
+	private static function is_own_route(): bool {
+		$route = $GLOBALS['wp']->query_vars['rest_route'] ?? '';
+		if ( is_string( $route ) && str_starts_with( $route, '/' . self::NS . '/' ) ) {
+			return true;
+		}
 
-        $uri = $_SERVER['REQUEST_URI'] ?? '';
+		$uri = sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) );
 
-        return is_string( $uri ) && str_contains( $uri, '/wp-json/' . self::NS . '/' );
-    }
+		return str_contains( $uri, '/wp-json/' . self::NS . '/' );
+	}
 
-    public static function register_routes(): void {
-        register_rest_route( self::NS, '/readyz', [
-            'methods'             => 'GET',
-            'callback'            => [self::class, 'readyz'],
-            'permission_callback' => '__return_true',
-        ] );
+	/**
+	 * Register /readyz and /metrics; both are open at the REST layer and
+	 * enforce their own token rules inside the handler.
+	 */
+	public static function register_routes(): void {
+		register_rest_route(
+			self::NS,
+			'/readyz',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( self::class, 'readyz' ),
+				'permission_callback' => '__return_true',
+			)
+		);
 
-        register_rest_route( self::NS, '/metrics', [
-            'methods'             => 'GET',
-            'callback'            => [self::class, 'metrics'],
-            'permission_callback' => '__return_true',
-        ] );
-    }
+		register_rest_route(
+			self::NS,
+			'/metrics',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( self::class, 'metrics' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+	}
 
-    public static function readyz( \WP_REST_Request $request ): \WP_REST_Response {
-        $results = Checks::run();
-        $passed  = Checks::all_passed( $results );
+	/**
+	 * Readiness handler: 200 when every check passes, 503 otherwise.
+	 *
+	 * @param \WP_REST_Request $request Incoming request.
+	 * @return \WP_REST_Response
+	 */
+	public static function readyz( \WP_REST_Request $request ): \WP_REST_Response {
+		$results = Checks::run();
+		$passed  = Checks::all_passed( $results );
 
-        // Unauthenticated callers get the verdict and the names of failing
-        // checks, but not the detail — "db_version 57155 != core 58975" is
-        // useful to an operator and equally useful to an attacker.
-        if ( self::authorized( $request ) ) {
-            $body = [
-                'status' => $passed ? 'ok' : 'fail',
-                'checks' => $results,
-            ];
-        } else {
-            $body = [
-                'status' => $passed ? 'ok' : 'fail',
-                'failed' => Checks::failed_names( $results ),
-            ];
-        }
+		// Unauthenticated callers get the verdict and the names of failing
+		// checks, but not the detail — "db_version 57155 != core 58975" is
+		// useful to an operator and equally useful to an attacker.
+		if ( self::authorized( $request ) ) {
+			$body = array(
+				'status' => $passed ? 'ok' : 'fail',
+				'checks' => $results,
+			);
+		} else {
+			$body = array(
+				'status' => $passed ? 'ok' : 'fail',
+				'failed' => Checks::failed_names( $results ),
+			);
+		}
 
-        $response = new \WP_REST_Response( $body, $passed ? 200 : 503 );
-        $response->header( 'Cache-Control', 'no-store' );
+		$response = new \WP_REST_Response( $body, $passed ? 200 : 503 );
+		$response->header( 'Cache-Control', 'no-store' );
 
-        return $response;
-    }
+		return $response;
+	}
 
-    public static function metrics( \WP_REST_Request $request ): \WP_REST_Response {
-        if ( ! self::authorized( $request ) ) {
-            // 404 rather than 401: an unauthenticated caller learns nothing
-            // about whether this site exports metrics at all.
-            return new \WP_REST_Response( ['code' => 'rest_no_route'], 404 );
-        }
+	/**
+	 * Metrics handler: Prometheus exposition text for token holders, 404 for everyone else.
+	 *
+	 * @param \WP_REST_Request $request Incoming request.
+	 * @return \WP_REST_Response
+	 */
+	public static function metrics( \WP_REST_Request $request ): \WP_REST_Response {
+		if ( ! self::authorized( $request ) ) {
+			// 404 rather than 401: an unauthenticated caller learns nothing
+			// about whether this site exports metrics at all.
+			return new \WP_REST_Response( array( 'code' => 'rest_no_route' ), 404 );
+		}
 
-        $text = Metrics::render();
+		$text = Metrics::render();
 
-        // Serve raw exposition text instead of the JSON the REST server would
-        // otherwise wrap it in, while still letting WordPress shut down cleanly.
-        add_filter( 'rest_pre_serve_request', static function ( $served ) use ( $text ) {
-            // Another handler may already have written the response. Appending
-            // exposition to it would corrupt both, so defer rather than echo.
-            if ( $served ) {
-                return $served;
-            }
+		// Serve raw exposition text instead of the JSON the REST server would
+		// otherwise wrap it in, while still letting WordPress shut down cleanly.
+		add_filter(
+			'rest_pre_serve_request',
+			static function ( $served ) use ( $text ) {
+				// Another handler may already have written the response. Appending
+				// exposition to it would corrupt both, so defer rather than echo.
+				if ( $served ) {
+					return $served;
+				}
 
-            header( 'Content-Type: text/plain; version=0.0.4; charset=utf-8' );
-            header( 'Cache-Control: no-store' );
-            echo $text; // phpcs:ignore WordPress.Security.EscapeOutput -- Prometheus exposition, not HTML.
+				header( 'Content-Type: text/plain; version=0.0.4; charset=utf-8' );
+				header( 'Cache-Control: no-store' );
+				echo $text; // phpcs:ignore WordPress.Security.EscapeOutput -- Prometheus exposition, not HTML.
 
-            return true;
-        } );
+				return true;
+			}
+		);
 
-        return new \WP_REST_Response( null, 200 );
-    }
+		return new \WP_REST_Response( null, 200 );
+	}
 
-    private static function authorized( \WP_REST_Request $request ): bool {
-        $expected = Config::token();
-        if ( null === $expected ) {
-            return false;
-        }
+	/**
+	 * Whether the request presents the configured token, as `Authorization: Bearer`
+	 * or `X-Ops-Token`. Always false when no token is configured.
+	 *
+	 * @param \WP_REST_Request $request Incoming request.
+	 * @return bool
+	 */
+	private static function authorized( \WP_REST_Request $request ): bool {
+		$expected = Config::token();
+		if ( null === $expected ) {
+			return false;
+		}
 
-        $header = (string) $request->get_header( 'authorization' );
-        if ( 0 === stripos( $header, 'bearer ' ) ) {
-            $presented = substr( $header, 7 );
-        } else {
-            $presented = (string) $request->get_header( 'x_ops_token' );
-        }
+		$header = (string) $request->get_header( 'authorization' );
+		if ( 0 === stripos( $header, 'bearer ' ) ) {
+			$presented = substr( $header, 7 );
+		} else {
+			$presented = (string) $request->get_header( 'x_ops_token' );
+		}
 
-        return '' !== $presented && hash_equals( $expected, $presented );
-    }
+		return '' !== $presented && hash_equals( $expected, $presented );
+	}
 }
