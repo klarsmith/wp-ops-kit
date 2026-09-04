@@ -4,9 +4,10 @@ name: CI
 # claims to support: 8.3 is the floor declared in composer.json, 8.5 is what
 # wp-base actually ships.
 #
-# Steps shell out to docker rather than using a job-level `container:` — the
-# arc-dind runners have a Docker daemon, and it keeps CI byte-identical to the
-# command you run locally.
+# Public repo → GitHub-hosted runners (free for public repos, and isolated from our
+# cluster: a self-hosted runner would execute fork PRs inside the tailnet). Steps
+# shell out to docker rather than using a job-level `container:` — hosted runners
+# have a Docker daemon, and it keeps CI byte-identical to the command you run locally.
 
 on:
   push:
@@ -17,7 +18,7 @@ on:
 
 jobs:
   test:
-    runs-on: arc-dind
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -43,7 +44,7 @@ jobs:
             php -d opcache.enable_cli=1 vendor/bin/phpunit
 
   static-analysis:
-    runs-on: arc-dind
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -63,7 +64,7 @@ jobs:
             php -d memory_limit=1G vendor/bin/phpstan analyse --no-progress
 
   coverage:
-    runs-on: arc-dind
+    runs-on: ubuntu-latest
     needs: test
     steps:
       - uses: actions/checkout@v4
