@@ -191,7 +191,7 @@ spec:
 | `wp_ops_up` | gauge | Always 1 — the exporter answered |
 | `wp_ops_build_info` | gauge | Labels: `wp_version`, `php_version`, `plugin_version` |
 | `wp_ops_snapshot_age_seconds` | gauge | `-1` if never collected. **Alert on this.** |
-| `wp_ops_site_posts` | gauge | Labels: `post_type`, `status` |
+| `wp_ops_site_posts` | gauge | Labels: `post_type`, `status`. Zero-valued statuses are omitted, except `publish` — always exported so a drop to zero stays alertable instead of reading as a stale series. |
 | `wp_ops_site_users_total` | gauge | |
 | `wp_ops_site_cron_events` | gauge | |
 | `wp_ops_site_cron_overdue_events` | gauge | |

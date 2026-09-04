@@ -145,6 +145,30 @@ final class RestTest extends TestCase {
         self::assertStringStartsWith( '# HELP', $output );
     }
 
+    /**
+     * The filter runs in a chain. If something upstream already wrote the
+     * response, appending exposition to it would corrupt both payloads.
+     */
+    public function test_metrics_defers_when_the_request_was_already_served(): void {
+        $this->env( 'WP_OPS_TOKEN', 's3cret' );
+
+        $captured = null;
+        Filters\expectAdded( 'rest_pre_serve_request' )
+            ->once()
+            ->whenHappen( function ( callable $callback ) use ( &$captured ): void {
+                $captured = $callback;
+            } );
+
+        Rest::metrics( $this->request( ['authorization' => 'Bearer s3cret'] ) );
+
+        ob_start();
+        $served = $captured( true );
+        $output = (string) ob_get_clean();
+
+        self::assertTrue( $served );
+        self::assertSame( '', $output, 'Nothing may be written once the request is served.' );
+    }
+
     public function test_x_ops_token_header_is_accepted_as_an_alternative(): void {
         $this->env( 'WP_OPS_TOKEN', 's3cret' );
 

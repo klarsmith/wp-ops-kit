@@ -165,6 +165,38 @@ final class SnapshotTest extends TestCase {
         self::assertSame( 812345, $metrics['autoload_bytes'] );
     }
 
+    /**
+     * wp_count_posts() returns every status for every type, which on a real site
+     * meant 26 of 39 exported series were zeros. Publish survives at zero so the
+     * "content vanished" signal stays alertable; the rest are dropped.
+     */
+    public function test_zero_valued_statuses_are_dropped_except_publish(): void {
+        $this->stubCollectDependencies();
+        Functions\when( 'get_post_types' )->justReturn( ['post', 'portfolio'] );
+        Functions\when( 'wp_count_posts' )->justReturn(
+            (object) ['publish' => 0, 'draft' => 2, 'pending' => 0, 'private' => 0, 'trash' => 0]
+        );
+        Functions\when( 'set_transient' )->justReturn( true );
+
+        $posts = Snapshot::collect()['metrics']['posts'];
+
+        self::assertSame( ['publish' => 0, 'draft' => 2], $posts['post'] );
+        self::assertSame( ['publish' => 0, 'draft' => 2], $posts['portfolio'] );
+    }
+
+    public function test_non_zero_statuses_are_all_kept(): void {
+        $this->stubCollectDependencies();
+        Functions\when( 'wp_count_posts' )->justReturn(
+            (object) ['publish' => 12, 'draft' => 3, 'pending' => 1, 'private' => 4, 'trash' => 5]
+        );
+        Functions\when( 'set_transient' )->justReturn( true );
+
+        self::assertSame(
+            ['publish' => 12, 'draft' => 3, 'pending' => 1, 'private' => 4, 'trash' => 5],
+            Snapshot::collect()['metrics']['posts']['post']
+        );
+    }
+
     private function stubCollectDependencies(): void {
         Functions\when( 'get_post_types' )->justReturn( ['post'] );
         Functions\when( 'wp_count_posts' )->justReturn(
