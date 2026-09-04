@@ -66,15 +66,32 @@ not recurse into mu-plugin subdirectories):
 require_once __DIR__ . '/wp-ops-kit/wp-ops-kit.php';
 ```
 
-### ⚠️ If you run a REST-restricting security plugin
+### If you run a REST-restricting security plugin or theme
 
-Anything that blocks anonymous REST access will also block `/wp-json/ops/v1/*`,
-and your probes will get a 404 with no explanation. With `imargus/wp-fortress`,
-add the namespace to the allowlist in `wp-config.php`:
+Anything that blocks anonymous REST access blocks `/wp-json/ops/v1/*` too, and
+your probes get a 404 or 403 with no explanation. This is common — and it is
+worth being precise about, because we found it the hard way on our own fleet
+where **two independent lockdowns** were layered on the same site: a security
+mu-plugin *and* the theme, each hooking `rest_authentication_errors`.
+
+The plugin therefore defends its own routes. It hooks the same filter at
+**priority 1** and returns `true` for its two endpoints only, before any
+site-level rule at the default priority 10 gets to run. Nothing else is
+affected, and the endpoints still protect themselves: anonymous `readyz`
+returns check names without detail, and `metrics` 404s unless a token is
+configured *and* presented.
+
+Set `WP_OPS_REST_BYPASS_AUTH=false` to leave your own rules in charge — then
+allowlist the namespace yourself. With `imargus/wp-fortress`:
 
 ```php
 define( 'FORTRESS_REST_ALLOWED_NAMESPACES', ['contact-form-7', 'ops'] );
 ```
+
+> **Writing your own allow-through? Return `true`, not `null`.** `null` is the
+> value the filter chain *starts* with — returning it changes nothing and the
+> next filter still blocks the request. We found exactly this no-op guarding a
+> health endpoint that had been quietly unreachable for months.
 
 ## Configuration
 
@@ -87,6 +104,7 @@ the database**. Ops behaviour is declared in the deployment, not clicked into
 | `WP_OPS_TOKEN` | *(unset)* | Bearer token for `/metrics` and detailed `/readyz`. **Unset disables `/metrics` entirely** — an exporter that fails open is a data leak. |
 | `WP_OPS_REQUIRED_PLUGINS` | *(none)* | Comma-separated plugin files that must be active for readiness. |
 | `WP_OPS_EXPECT_OBJECT_CACHE` | `false` | Fail readiness when the external object-cache dropin is missing. |
+| `WP_OPS_REST_BYPASS_AUTH` | `true` | Assert this plugin's own routes past site-level REST lockdowns (see above). |
 | `WP_OPS_LOG_JSON` | `false` | Emit structured JSON logs to stderr. |
 | `WP_OPS_SITE_NAME` | host of `home` | `site` label on log records. |
 

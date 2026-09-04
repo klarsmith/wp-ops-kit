@@ -39,7 +39,8 @@ abstract class TestCase extends PHPUnitTestCase {
         }
         $this->env = [];
 
-        unset( $GLOBALS['wpdb'], $GLOBALS['wp_db_version'], $GLOBALS['wp_version'] );
+        unset( $GLOBALS['wpdb'], $GLOBALS['wp_db_version'], $GLOBALS['wp_version'], $GLOBALS['wp'] );
+        unset( $_SERVER['REQUEST_URI'] );
 
         Monkey\tearDown();
         parent::tearDown();

@@ -23,7 +23,61 @@ final class Rest {
     private const NS = 'ops/v1';
 
     public static function init(): void {
+        // Priority 1 so the decision is made before site-level lockdowns run. A
+        // theme or security plugin returning a blanket WP_Error for anonymous
+        // callers is common on hardened installs, and it would otherwise block
+        // the probes silently — the exact failure this plugin exists to remove.
+        add_filter( 'rest_authentication_errors', [self::class, 'allow_anonymous_access'], 1 );
         add_action( 'rest_api_init', [self::class, 'register_routes'] );
+    }
+
+    /**
+     * Assert that this plugin's own two routes are reachable without a session.
+     *
+     * kubelet carries no cookie and Prometheus carries no nonce, so a blanket
+     * "REST is for logged-in users only" filter takes the probes down with it.
+     * The scope is deliberately narrow: only this plugin's namespace, only when
+     * no earlier filter has already decided, and the routes protect themselves —
+     * anonymous readyz returns check names without detail, and metrics 404s
+     * unless a token is configured and presented.
+     *
+     * Returning null here would be a no-op: null is the "undecided" value the
+     * chain starts with, so a later filter would still run and block the request.
+     * It has to be true.
+     *
+     * Set WP_OPS_REST_BYPASS_AUTH=false to leave the site's own rules in charge,
+     * accepting that the endpoints may then be unreachable.
+     *
+     * @param  WP_Error|bool|null $result
+     * @return WP_Error|bool|null
+     */
+    public static function allow_anonymous_access( $result ) {
+        // Never override a decision another filter has already made.
+        if ( null !== $result ) {
+            return $result;
+        }
+
+        if ( ! Config::bool( 'WP_OPS_REST_BYPASS_AUTH', true ) || ! self::is_own_route() ) {
+            return $result;
+        }
+
+        return true;
+    }
+
+    /**
+     * Both signals are needed: query_vars is the reliable one but is not always
+     * populated this early, and REQUEST_URI survives prefixes that plugins add
+     * to the REST root (WPML, for instance, serves /en/wp-json/...).
+     */
+    private static function is_own_route(): bool {
+        $route = $GLOBALS['wp']->query_vars['rest_route'] ?? '';
+        if ( is_string( $route ) && str_starts_with( $route, '/' . self::NS . '/' ) ) {
+            return true;
+        }
+
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+
+        return is_string( $uri ) && str_contains( $uri, '/wp-json/' . self::NS . '/' );
     }
 
     public static function register_routes(): void {
