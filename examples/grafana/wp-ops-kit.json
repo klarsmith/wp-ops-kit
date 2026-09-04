@@ -1,0 +1,254 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus / VictoriaMetrics",
+      "description": "Datasource holding the wp_ops_* series",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "table", "name": "Table", "version": "" },
+    { "type": "panel", "id": "bargauge", "name": "Bar gauge", "version": "" }
+  ],
+  "uid": "wp-ops-kit",
+  "title": "WordPress — wp-ops-kit",
+  "description": "Readiness, snapshot freshness, site health and per-pod PHP/opcache from the wp-ops-kit plugin (https://github.com/klarsmith/wp-ops-kit). Series carry no site label; the scraper's namespace label identifies the site.",
+  "tags": ["wordpress", "wp-ops-kit"],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "${DS_PROMETHEUS}", "value": "${DS_PROMETHEUS}" },
+        "hide": 0
+      },
+      {
+        "name": "namespace",
+        "label": "Site (namespace)",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "query": { "query": "label_values(wp_ops_up, namespace)", "refId": "ns" },
+        "definition": "label_values(wp_ops_up, namespace)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "current": { "text": "All", "value": "$__all" },
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row", "id": 100, "title": "Overview", "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "stat", "id": 1, "title": "Sites ready",
+      "description": "wp_ops_up per site: 1 when every readiness check passes. Red means the readiness probe is draining that site's pods.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 1 },
+      "targets": [
+        { "refId": "A", "expr": "max by (namespace) (wp_ops_up{namespace=~\"${namespace:regex}\"})", "legendFormat": "{{namespace}}", "instant": true }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "value_and_name", "justifyMode": "center" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "NOT READY", "color": "red" }, "1": { "text": "ready", "color": "green" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat", "id": 2, "title": "Snapshot age",
+      "description": "Seconds since wp ops collect last wrote the snapshot. The collector runs every 5 minutes; -1 means it has never run. Alert threshold in the shipped rules: 15 minutes.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 1 },
+      "targets": [
+        { "refId": "A", "expr": "max by (namespace) (wp_ops_snapshot_age_seconds{namespace=~\"${namespace:regex}\"})", "legendFormat": "{{namespace}}", "instant": true }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "value_and_name", "justifyMode": "center" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "mappings": [ { "type": "value", "options": { "-1": { "text": "never collected", "color": "red" } } } ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 600 }, { "color": "red", "value": 900 } ] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat", "id": 3, "title": "Updates available",
+      "description": "Pending core, plugin and theme updates as reported by WordPress's own update checks (wp_ops_site_updates_available).",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 1 },
+      "targets": [
+        { "refId": "A", "expr": "sum by (type) (max by (namespace, type) (wp_ops_site_updates_available{namespace=~\"${namespace:regex}\"}))", "legendFormat": "{{type}}", "instant": true }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "none", "textMode": "value_and_name", "justifyMode": "center" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 5 } ] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "table", "id": 4, "title": "Build info",
+      "description": "WordPress, PHP and plugin versions per pod (wp_ops_build_info).",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 6 },
+      "targets": [
+        { "refId": "A", "expr": "wp_ops_build_info{namespace=~\"${namespace:regex}\"}", "format": "table", "instant": true }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "Value": true, "__name__": true, "container": true, "endpoint": true, "instance": true, "job": true, "prometheus": true, "service": true }, "indexByName": { "namespace": 0, "pod": 1, "wp_version": 2, "php_version": 3, "plugin_version": 4 }, "renameByName": { "namespace": "site", "wp_version": "WordPress", "php_version": "PHP", "plugin_version": "wp-ops-kit" } } }
+      ],
+      "options": { "showHeader": true, "cellHeight": "sm" },
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    },
+    {
+      "type": "row", "id": 200, "title": "Site (identical on every replica — pod label dropped by the scrape relabel)", "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 }
+    },
+    {
+      "type": "timeseries", "id": 5, "title": "Snapshot age",
+      "description": "Sawtooth is healthy: it resets every collector run. A rising line means the collector has stopped.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "targets": [
+        { "refId": "A", "expr": "max by (namespace) (wp_ops_snapshot_age_seconds{namespace=~\"${namespace:regex}\"})", "legendFormat": "{{namespace}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 10 },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 900 } ] } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries", "id": 6, "title": "Overdue cron events",
+      "description": "Events past their scheduled time (wp_ops_site_cron_overdue_events) and how late the oldest one is. Overdue cron means the out-of-process cron runner is not firing.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "targets": [
+        { "refId": "A", "expr": "max by (namespace) (wp_ops_site_cron_overdue_events{namespace=~\"${namespace:regex}\"})", "legendFormat": "{{namespace}} overdue" },
+        { "refId": "B", "expr": "max by (namespace) (wp_ops_site_cron_oldest_overdue_seconds{namespace=~\"${namespace:regex}\"})", "legendFormat": "{{namespace}} oldest (s)" }
+      ],
+      "fieldConfig": {
+        "defaults": { "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 0 } },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*oldest.*" }, "properties": [ { "id": "unit", "value": "s" }, { "id": "custom.axisPlacement", "value": "right" } ] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries", "id": 7, "title": "Autoloaded options",
+      "description": "Bytes of wp_options loaded on every request (wp_ops_site_autoload_options_bytes). Growth here is paid by every page view.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 21 },
+      "targets": [
+        { "refId": "A", "expr": "max by (namespace) (wp_ops_site_autoload_options_bytes{namespace=~\"${namespace:regex}\"})", "legendFormat": "{{namespace}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "bargauge", "id": 8, "title": "Posts by type and status",
+      "description": "wp_ops_site_posts. Zero-valued statuses are not exported, except publish, so a published count dropping to zero stays visible.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 21 },
+      "targets": [
+        { "refId": "A", "expr": "max by (namespace, post_type, status) (wp_ops_site_posts{namespace=~\"${namespace:regex}\"})", "legendFormat": "{{namespace}} {{post_type}}/{{status}}", "instant": true }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "minVizHeight": 10, "minVizWidth": 0 },
+      "fieldConfig": { "defaults": { "min": 0, "color": { "mode": "continuous-BlPu" } }, "overrides": [] }
+    },
+    {
+      "type": "stat", "id": 9, "title": "Users / active plugins / cron events",
+      "description": "wp_ops_site_users_total, wp_ops_site_plugins_active, wp_ops_site_cron_events.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 21 },
+      "targets": [
+        { "refId": "A", "expr": "max by (namespace) (wp_ops_site_users_total{namespace=~\"${namespace:regex}\"})", "legendFormat": "{{namespace}} users", "instant": true },
+        { "refId": "B", "expr": "max by (namespace) (wp_ops_site_plugins_active{namespace=~\"${namespace:regex}\"})", "legendFormat": "{{namespace}} plugins", "instant": true },
+        { "refId": "C", "expr": "max by (namespace) (wp_ops_site_cron_events{namespace=~\"${namespace:regex}\"})", "legendFormat": "{{namespace}} cron events", "instant": true }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "none", "graphMode": "none", "textMode": "value_and_name", "justifyMode": "center" },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [ { "color": "text", "value": null } ] } }, "overrides": [] }
+    },
+    {
+      "type": "row", "id": 300, "title": "Pod (PHP-FPM process — one series per pod)", "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 29 }
+    },
+    {
+      "type": "timeseries", "id": 10, "title": "Opcache hit ratio",
+      "description": "hits / (hits + misses) over the range. Below ~99% on a warm pod usually means the cache is too small or scripts are being revalidated.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 30 },
+      "targets": [
+        { "refId": "A", "expr": "increase(wp_ops_pod_opcache_hits_total{namespace=~\"${namespace:regex}\"}[$__rate_interval]) / (increase(wp_ops_pod_opcache_hits_total{namespace=~\"${namespace:regex}\"}[$__rate_interval]) + increase(wp_ops_pod_opcache_misses_total{namespace=~\"${namespace:regex}\"}[$__rate_interval]))", "legendFormat": "{{namespace}}/{{pod}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "lineWidth": 1, "fillOpacity": 0 },
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 0.99 } ] } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries", "id": 11, "title": "Opcache memory",
+      "description": "Used vs free opcache memory per pod. Free trending to zero means opcache.memory_consumption needs raising.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 30 },
+      "targets": [
+        { "refId": "A", "expr": "wp_ops_pod_opcache_memory_used_bytes{namespace=~\"${namespace:regex}\"}", "legendFormat": "{{namespace}}/{{pod}} used" },
+        { "refId": "B", "expr": "wp_ops_pod_opcache_memory_free_bytes{namespace=~\"${namespace:regex}\"}", "legendFormat": "{{namespace}}/{{pod}} free" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 10, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries", "id": 12, "title": "Cached scripts",
+      "description": "Scripts held in opcache per pod (wp_ops_pod_opcache_cached_scripts). Sudden drops indicate a cache reset.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 38 },
+      "targets": [
+        { "refId": "A", "expr": "wp_ops_pod_opcache_cached_scripts{namespace=~\"${namespace:regex}\"}", "legendFormat": "{{namespace}}/{{pod}}" }
+      ],
+      "fieldConfig": { "defaults": { "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries", "id": 13, "title": "PHP peak memory (metrics request)",
+      "description": "memory_get_peak_usage of the PHP worker that served the scrape (wp_ops_pod_php_memory_peak_bytes). A baseline for memory_limit, not a site-wide maximum.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 38 },
+      "targets": [
+        { "refId": "A", "expr": "wp_ops_pod_php_memory_peak_bytes{namespace=~\"${namespace:regex}\"}", "legendFormat": "{{namespace}}/{{pod}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0, "custom": { "lineWidth": 1, "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    }
+  ]
+}

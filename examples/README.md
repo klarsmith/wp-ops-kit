@@ -9,6 +9,7 @@ are placeholders, the shapes are not.
 | `kubernetes/` | `wp-ops-token-secret.yaml` (the `/metrics` bearer token), `wp-ops-collect-cronjob.yaml` (the 5-minute collector), `wordpress-deployment-probes.yaml` (a php-fpm + nginx Deployment showing where the readiness probe goes, liveness left dumb, `WP_OPS_*` env from a ConfigMap) |
 | `prometheus/` | Stock Prometheus path. `servicemonitor.yaml` (prometheus-operator / kube-prometheus-stack), `prometheus-scrape-config.yaml` (hand-run Prometheus, `scrape_configs` entry), `alert-rules.yaml` (`PrometheusRule` CRD), `alert-rules-plain.yml` (plain rule file) |
 | `victoriametrics/` | VictoriaMetrics operator path. `vmservicescrape.yaml`, `vmrule.yaml`, and `vmalert-rules.yml` (same rules as `../prometheus/alert-rules-plain.yml`, for a hand-run vmalert) |
+| `grafana/` | `wp-ops-kit.json` — dashboard (import via Dashboards → New → Import, or file-provision it). Overview stats, site health, per-pod opcache and PHP memory. Filter by `namespace`; datasource is asked for on import |
 
 ## Order
 
@@ -27,6 +28,7 @@ Each step is useful on its own; each later one assumes the earlier ones.
    site snapshot.
 5. **Alerts** — the matching rule file. Four rules: snapshot stale, snapshot
    never collected, scrape down, site not ready.
+6. **Dashboard** — `grafana/wp-ops-kit.json`.
 
 Conventions shared by all files: Service `wordpress` with port `http` and label
 `app: wordpress`; Secret `wp-ops-token` with key `WP_OPS_TOKEN` (one Secret feeds
