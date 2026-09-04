@@ -1,0 +1,37 @@
+# prometheus-operator / kube-prometheus-stack: scrape wp-ops-kit metrics from the
+# wordpress pods. Same shape as ../victoriametrics/vmservicescrape.yaml.
+#
+#   * bearerTokenSecret must be in the SAME namespace as this ServiceMonitor, so
+#     both live next to the site (see ../kubernetes/wp-ops-token-secret.yaml).
+#   * With kube-prometheus-stack the default serviceMonitorSelector only picks up
+#     objects labelled `release: <helm-release-name>` unless
+#     `prometheus.prometheusSpec.serviceMonitorNilUsesHelmValues: false` is set.
+#     Add the label below or flip the value.
+#   * The `job` label on the scraped series is the Service name, `wordpress`,
+#     which the alert rules match on.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: wordpress-ops
+  labels:
+    app: wordpress
+    # release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: wordpress
+  endpoints:
+    - port: http
+      path: /wp-json/ops/v1/metrics
+      interval: 60s
+      bearerTokenSecret:
+        name: wp-ops-token
+        key: WP_OPS_TOKEN
+      metricRelabelings:
+        # wp_ops_site_* comes from the shared snapshot and is identical on every
+        # replica; without this each pod exports a duplicate copy of every site
+        # series. wp_ops_pod_* genuinely differs per replica and keeps its pod label.
+        - sourceLabels: [__name__]
+          regex: "wp_ops_site_.*"
+          targetLabel: pod
+          replacement: ""

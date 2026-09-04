@@ -3,7 +3,20 @@
 Makes WordPress legible to Kubernetes and Prometheus: **honest readiness**,
 **snapshot-backed metrics**, and **structured JSON logs**.
 
-Status: **0.1.0, pre-release.** Not yet published to wordpress.org or Packagist.
+Status: **0.1.2**, tagged on [GitHub](https://github.com/klarsmith/wp-ops-kit).
+Packagist and wordpress.org listings pending.
+
+## Quick start
+
+```bash
+composer require klarsmith/wp-ops-kit && wp plugin activate wp-ops-kit
+export WP_OPS_TOKEN="$(openssl rand -base64 32)"        # unset = /metrics disabled
+# readinessProbe: GET /wp-json/ops/v1/readyz            (liveness stays dumb)
+wp ops collect                                          # CronJob, every 5 minutes
+curl -H "Authorization: Bearer $WP_OPS_TOKEN" https://site/wp-json/ops/v1/metrics
+```
+
+Full Kubernetes manifests, scrape configs and alert rules: [`examples/`](examples/).
 
 ## Why
 
@@ -141,48 +154,14 @@ readinessProbe:
   failureThreshold: 3
 ```
 
-The collector — without it, metrics never refresh:
-
-```yaml
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: wp-ops-collect
-spec:
-  schedule: "*/5 * * * *"
-  concurrencyPolicy: Forbid
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          restartPolicy: OnFailure
-          containers:
-            - name: collect
-              image: <your wp image>
-              command: ["wp", "ops", "collect", "--path=/var/www/html/app/public_html"]
-```
-
-Scraping — note the relabel that collapses the duplicated site series:
-
-```yaml
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMServiceScrape
-spec:
-  endpoints:
-    - port: http
-      path: /wp-json/ops/v1/metrics
-      interval: 60s
-      bearerTokenSecret:
-        name: wp-ops-token
-        key: token
-      metricRelabelConfigs:
-        # wp_ops_site_* is identical on every replica; without this you get one
-        # duplicate series per pod, all reporting the same number.
-        - sourceLabels: [__name__]
-          regex: "wp_ops_site_.*"
-          targetLabel: pod
-          replacement: ""
-```
+The rest lives in [`examples/`](examples/) as complete, apply-able files rather
+than snippets: the token Secret, the `wp-ops-collect` CronJob (without it,
+metrics never refresh), a full Deployment showing probe placement, and scraping
+plus the four alert rules for both stock Prometheus (`ServiceMonitor`,
+`PrometheusRule`, plain `scrape_configs`) and the VictoriaMetrics operator
+(`VMServiceScrape`, `VMRule`). Whichever scraper you use, keep the relabel that
+drops the `pod` label from `wp_ops_site_.*` — every replica serves the same
+snapshot, so without it you get one duplicate series per pod.
 
 ## Metrics
 
@@ -256,15 +235,22 @@ pass therefore still has to prove on a real site:
 - **Phase 2 — drift and awareness:** plugins active in the database but absent
   from `composer.lock`, missing object-cache dropin, core checksum mismatches.
 - **Phase 3 — the packaging that makes it adoptable:** Grafana dashboard JSON,
-  VMRule/PrometheusRule with runbook annotations, `wp-site` chart integration.
+  runbook annotations on the alert rules in `examples/`, `wp-site` chart
+  integration.
 
-### Before publishing
+### Release status
 
-- [ ] Paste the verbatim GPL-2.0 text into `LICENSE`
-- [ ] Add wordpress.org `readme.txt` (stable tag, tested-up-to, screenshots)
-- [ ] Work through the integration gaps in the table above on a real site
-- [ ] Dogfood across the fleet namespaces
-- [ ] Tag `v0.1.0`, submit to wordpress.org, register on Packagist
+- [x] Verbatim GPL-2.0 text in `LICENSE`
+- [x] wordpress.org `readme.txt`
+- [x] `v0.1.2` tagged
+- [ ] Packagist registration
+- [ ] wordpress.org submission
+
+See [`CHANGELOG.md`](CHANGELOG.md) for what changed between versions.
+
+## Security
+
+Report vulnerabilities privately to hello@klarsmith.com — see [`SECURITY.md`](SECURITY.md).
 
 ## Licence
 

@@ -1,0 +1,31 @@
+# VictoriaMetrics operator: scrape wp-ops-kit metrics from the wordpress pods.
+# vmagent with `selectAllByDefault: true` discovers this in any namespace. The
+# bearer token has to be a Secret in the SAME namespace as this object, so it
+# lives next to the site (see ../kubernetes/wp-ops-token-secret.yaml), not with
+# the monitoring stack. The `job` label on the resulting series is the Service
+# name — `wordpress` — which the VMRule alerts match on.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: wordpress-ops
+  labels:
+    app: wordpress
+spec:
+  selector:
+    matchLabels:
+      app: wordpress
+  endpoints:
+    - port: http
+      path: /wp-json/ops/v1/metrics
+      interval: 60s
+      bearerTokenSecret:
+        name: wp-ops-token
+        key: WP_OPS_TOKEN
+      metricRelabelConfigs:
+        # wp_ops_site_* comes from the shared snapshot and is identical on every
+        # replica; without this each pod exports a duplicate copy of every site
+        # series. wp_ops_pod_* genuinely differs per replica and keeps its pod label.
+        - sourceLabels: [__name__]
+          regex: "wp_ops_site_.*"
+          targetLabel: pod
+          replacement: ""

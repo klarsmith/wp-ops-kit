@@ -39,7 +39,8 @@ Configuration is by environment variable, which is how containers are configured
 
 * `WP_OPS_TOKEN` — bearer token for `/metrics` (`Authorization: Bearer` or
   `X-Ops-Token`). Unset disables the endpoint.
-* `WP_OPS_SITE_NAME` — label attached to every series.
+* `WP_OPS_SITE_NAME` — `site` label on JSON log records (metrics carry no site
+  label; the scraper's own labels identify the site).
 * `WP_OPS_EXPECT_OBJECT_CACHE` — fail readiness when no external object cache is active.
 * `WP_OPS_REQUIRED_PLUGINS` — comma-separated plugin files (`dir/plugin.php`) that
   must be active for readiness.

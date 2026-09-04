@@ -1,0 +1,52 @@
+# Hand-run Prometheus (no operator): a `scrape_configs` entry for wp-ops-kit.
+# Merge into prometheus.yml. Two target sources are shown — pick one.
+#
+# The token is read from a file so it stays out of prometheus.yml; on Kubernetes
+# mount ../kubernetes/wp-ops-token-secret.yaml into the Prometheus pod and point
+# the path at the WP_OPS_TOKEN key. `bearer_token_file` is the long-standing key;
+# newer Prometheus spells the same thing
+#   authorization: { type: Bearer, credentials_file: /etc/prometheus/secrets/wp-ops-token/WP_OPS_TOKEN }
+# and either works.
+#
+# job_name is `wordpress` on purpose: the alert rules match `up{job="wordpress"}`,
+# and that is also the job label the operators derive from a Service named
+# `wordpress`. Rename both together if yours differs.
+scrape_configs:
+  - job_name: wordpress
+    metrics_path: /wp-json/ops/v1/metrics
+    scrape_interval: 60s
+    bearer_token_file: /etc/prometheus/secrets/wp-ops-token/WP_OPS_TOKEN
+
+    # --- Option A: Kubernetes service discovery. Targets every ready endpoint of
+    # a Service named `wordpress` with a port named `http`, in any namespace, and
+    # attaches the namespace/pod labels the alerts and the relabel below rely on.
+    kubernetes_sd_configs:
+      - role: endpoints
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        regex: wordpress;http
+        action: keep
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+
+    # --- Option B: a static target (single site, no Kubernetes SD). Delete
+    # kubernetes_sd_configs + relabel_configs above and use this instead. With no
+    # per-pod targets the `pod` relabel below is a harmless no-op, and you will
+    # want to give the site a `namespace` label by hand so the alert rules group
+    # something.
+    # static_configs:
+    #   - targets: ["wordpress.example.com:443"]
+    #     labels:
+    #       namespace: example-com
+    # scheme: https
+
+    metric_relabel_configs:
+      # wp_ops_site_* comes from the shared snapshot and is identical on every
+      # replica; without this each pod exports a duplicate copy of every site
+      # series. wp_ops_pod_* genuinely differs per replica and keeps its pod label.
+      - source_labels: [__name__]
+        regex: "wp_ops_site_.*"
+        target_label: pod
+        replacement: ""

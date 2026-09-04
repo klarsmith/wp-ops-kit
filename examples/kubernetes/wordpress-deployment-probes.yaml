@@ -1,0 +1,136 @@
+# Minimal php-fpm + nginx WordPress Deployment showing where wp-ops-kit plugs in.
+#
+#   * readiness  -> GET /wp-json/ops/v1/readyz on the nginx port (WordPress-aware:
+#                   DB reachable, schema matches core, object cache round-trips,
+#                   uploads writable, required plugins active). A failing check
+#                   drains the pod from the Service; nothing gets restarted.
+#   * liveness   -> deliberately dumb. nginx: a static `return 200` location.
+#                   php-fpm: the FPM ping page over FastCGI. Neither touches
+#                   WordPress or the database, so a DB outage cannot restart-storm
+#                   the fleet.
+#   * WP_OPS_*   -> from a ConfigMap (behaviour is declared in the deployment,
+#                   never read from wp_options); WP_OPS_TOKEN from a Secret
+#                   (see wp-ops-token-secret.yaml).
+#
+# Image layout, nginx config, volumes and resources are yours — they are trimmed
+# here to keep the probe wiring visible. Things this example assumes about your
+# image/config: nginx listens on 8080 and has `location = /nginx-health { return 200; }`;
+# php-fpm has `ping.path = /fpm-ping` and the image ships `cgi-fcgi` (fcgi package).
+# uid/gid 82 is www-data in php:*-fpm-alpine; adjust for your base image.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wordpress-config
+  labels:
+    app: wordpress
+data:
+  # Everything except the token lives here. Non-ops WordPress settings
+  # (DB host, WP_HOME, ...) go in the same ConfigMap / in wordpress-secrets.
+  WP_OPS_LOG_JSON: "true"
+  WP_OPS_EXPECT_OBJECT_CACHE: "true"
+  WP_OPS_REQUIRED_PLUGINS: "wp-ops-kit/wp-ops-kit.php"
+  # Only tags JSON log records. Metrics carry no `site` label — the scraper's
+  # `namespace` label is the site identity there.
+  WP_OPS_SITE_NAME: "example.com"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+  labels:
+    app: wordpress
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wordpress
+  template:
+    metadata:
+      labels:
+        app: wordpress
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 82
+        runAsGroup: 82
+        fsGroup: 82
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: php-fpm
+          image: your-registry/your-wp-image:tag
+          ports:
+            - containerPort: 9000
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            - configMapRef:
+                name: wordpress-config
+            - secretRef:
+                name: wordpress-secrets   # DB credentials, salts, ... (not shown)
+            - secretRef:
+                name: wp-ops-token        # -> WP_OPS_TOKEN
+          # Liveness = the fpm master accepts FastCGI connections. No WordPress
+          # bootstrap, no DB. The startupProbe gives a cold pod time to get there.
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "SCRIPT_NAME=/fpm-ping SCRIPT_FILENAME=/fpm-ping REQUEST_METHOD=GET REDIRECT_STATUS=true cgi-fcgi -bind -connect 127.0.0.1:9000"
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "SCRIPT_NAME=/fpm-ping SCRIPT_FILENAME=/fpm-ping REQUEST_METHOD=GET REDIRECT_STATUS=true cgi-fcgi -bind -connect 127.0.0.1:9000"
+            initialDelaySeconds: 15
+            periodSeconds: 20
+        - name: nginx
+          # Unprivileged variant listens on 8080 and runs as non-root.
+          image: nginxinc/nginx-unprivileged:1.29-alpine
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          # Readiness = wp-ops-kit readyz. 200 only when WordPress is actually
+          # serving the site; 503 (with failing check names) drains the pod.
+          # Three failures 10s apart = out of the pool in ~30s.
+          readinessProbe:
+            httpGet:
+              path: /wp-json/ops/v1/readyz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          # Liveness = nginx itself is up. Static location, no upstream.
+          livenessProbe:
+            httpGet:
+              path: /nginx-health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+# The scrape objects (ServiceMonitor / VMServiceScrape / kubernetes_sd) select this
+# Service by `app: wordpress` and the port by its name, `http`. Its name also becomes
+# the `job` label on the scraped series, which the alert rules match on.
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+  labels:
+    app: wordpress
+spec:
+  selector:
+    app: wordpress
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
