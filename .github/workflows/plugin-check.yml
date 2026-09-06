@@ -17,19 +17,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Build the tree the directory would see: export-ignore strips tests/,
-      # .github/, lint configs (see .gitattributes).
-      - name: Export the distributable tree
+      # Build the tree the directory would see (slug ops-kit-for-wordpress, main
+      # file renamed, export-ignore strips tests/ and CI config).
+      - name: Build the wordpress.org tree
         run: |
-          mkdir -p build/wp-ops-kit
-          git archive --worktree-attributes HEAD | tar -x -C build/wp-ops-kit
-          ls -R build/wp-ops-kit | head -40
+          bin/build-wporg-zip.sh HEAD build
+          ls -R build/ops-kit-for-wordpress | head -40
 
       - name: Plugin Check
         uses: wordpress/plugin-check-action@v1.1.9
         with:
-          build-dir: build/wp-ops-kit
-          exclude-directories: examples
+          build-dir: build/ops-kit-for-wordpress
           categories: |
             general
             plugin_repo

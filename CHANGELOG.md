@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-06
+
+### Changed
+- Display name "Ops Kit for WordPress" for the wordpress.org directory (slug
+  `ops-kit-for-wordpress`, built by `bin/build-wporg-zip.sh`); the Composer and
+  GitHub name stays `klarsmith/wp-ops-kit`. `Tested up to: 7.1`.
+
 ## [0.1.3] - 2026-09-06
 
 ### Changed
@@ -43,6 +50,7 @@ All notable changes to this project are documented here. The format follows
   logging, `wp ops check|collect|metrics` commands.
 
 [Unreleased]: https://github.com/klarsmith/wp-ops-kit/compare/v0.1.2...HEAD
+[0.1.4]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.4
 [0.1.3]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.3
 [0.1.2]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.2
 [0.1.1]: https://github.com/klarsmith/wp-ops-kit/commit/9a9f02c

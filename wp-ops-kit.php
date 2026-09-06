@@ -1,13 +1,14 @@
 <?php
 /**
- * Plugin Name: WP Ops Kit
+ * Plugin Name: Ops Kit for WordPress
  * Plugin URI:  https://github.com/klarsmith/wp-ops-kit
  * Description: Makes WordPress legible to Kubernetes and Prometheus — honest readiness, snapshot-backed metrics, structured JSON logs.
- * Version:     0.1.3
+ * Version:     0.1.4
  * Author:      klarsmith
  * Author URI:  https://klarsmith.com
  * License:     GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Requires at least: 6.4
  * Requires PHP: 8.3
  *
  * @package WPOpsKit
@@ -19,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WP_OPS_KIT_VERSION', '0.1.3' );
+define( 'WP_OPS_KIT_VERSION', '0.1.4' );
 
 $wp_ops_includes = plugin_dir_path( __FILE__ ) . 'includes/';
 require_once $wp_ops_includes . 'class-config.php';
