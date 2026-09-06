@@ -17,7 +17,7 @@ WordPress has no honest health endpoint. The front page, `admin-ajax.php` and th
 WordPress is serving its "database update required" interstitial. Every probe in common
 use calls that pod ready.
 
-Ops Kit gives a containerised WordPress site three things operators actually need:
+WP Ops Kit gives a containerised WordPress site three things operators actually need:
 
 * **Honest readiness** — `GET /wp-json/ops/v1/readyz` returns 200 only when the database
   answers, the schema matches the running core version, the object cache round-trips, and
@@ -56,9 +56,8 @@ scraping live at https://github.com/klarsmith/wp-ops-kit.
 
 == Installation ==
 
-1. Install from the WordPress plugin directory, or with Composer
-   (`composer require klarsmith/wp-ops-kit`; the Composer package installs as
-   `wp-content/plugins/wp-ops-kit`).
+1. Install with Composer (`composer require klarsmith/wp-ops-kit`) or upload the
+   `wp-ops-kit` directory to `wp-content/plugins/`.
 2. Activate the plugin.
 3. Point your readiness probe at `/wp-json/ops/v1/readyz`.
 4. Run `wp ops collect` on a schedule (a five-minute CronJob is the reference setup).

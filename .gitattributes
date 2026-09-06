@@ -10,3 +10,4 @@
 /.gitignore          export-ignore
 
 * text=auto
+/bin/               export-ignore
