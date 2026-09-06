@@ -26,7 +26,7 @@ jobs:
           ls -R build/wp-ops-kit | head -40
 
       - name: Plugin Check
-        uses: wordpress/plugin-check-action@v1
+        uses: wordpress/plugin-check-action@v1.1.9
         with:
           build-dir: build/wp-ops-kit
           exclude-directories: examples
