@@ -4,7 +4,7 @@ Tags: kubernetes, prometheus, monitoring, health-check, logging
 Requires at least: 6.4
 Tested up to: 7.0
 Requires PHP: 8.3
-Stable tag: 0.1.2
+Stable tag: 0.1.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -92,6 +92,12 @@ Yes. Route detection uses the REST route query variable with a request-URI fallb
 `/en/wp-json/ops/v1/readyz` works the same as `/wp-json/ops/v1/readyz`.
 
 == Changelog ==
+
+= 0.1.3 =
+* Code conforms to the WordPress Coding Standards; PHPStan level 6 clean. No
+  behaviour change beyond sanitising two request inputs used for route detection.
+* Copy-paste manifests in `examples/` for Kubernetes, stock Prometheus,
+  VictoriaMetrics and a Grafana dashboard.
 
 = 0.1.2 =
 * `/metrics` no longer appends its exposition to a response another handler has already

@@ -3,7 +3,7 @@
 Makes WordPress legible to Kubernetes and Prometheus: **honest readiness**,
 **snapshot-backed metrics**, and **structured JSON logs**.
 
-Status: **0.1.2**, tagged on [GitHub](https://github.com/klarsmith/wp-ops-kit).
+Status: **0.1.3**, tagged on [GitHub](https://github.com/klarsmith/wp-ops-kit).
 On [Packagist](https://packagist.org/packages/klarsmith/wp-ops-kit) as `klarsmith/wp-ops-kit`; wordpress.org listing pending.
 
 ## Quick start

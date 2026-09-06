@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-06
+
+### Changed
+- Code conforms to the WordPress Coding Standards (phpcs) and passes PHPStan
+  level 6; both run in CI. Two request inputs used for route detection are now
+  unslashed and sanitised. No other behaviour change.
+
+### Added
+- `examples/`: Kubernetes probes and collector CronJob, stock Prometheus
+  (ServiceMonitor, PrometheusRule, plain scrape config), VictoriaMetrics
+  (VMServiceScrape, VMRule) and a Grafana dashboard.
+- `SECURITY.md`, this changelog, `.gitattributes` export-ignore for tests and CI.
+
 ## [0.1.2] - 2026-09-04
 
 ### Fixed
@@ -30,6 +43,7 @@ All notable changes to this project are documented here. The format follows
   logging, `wp ops check|collect|metrics` commands.
 
 [Unreleased]: https://github.com/klarsmith/wp-ops-kit/compare/v0.1.2...HEAD
+[0.1.3]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.3
 [0.1.2]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.2
 [0.1.1]: https://github.com/klarsmith/wp-ops-kit/commit/9a9f02c
 [0.1.0]: https://github.com/klarsmith/wp-ops-kit/commit/0a506a0
