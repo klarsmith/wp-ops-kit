@@ -1,0 +1,37 @@
+name: Plugin Check
+
+# The wordpress.org directory reviews submissions with the Plugin Check tool.
+# Run the same checks here so a rejection never comes as a surprise. Hosted
+# runner: the action spins up its own WordPress; nothing of ours is needed.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  plugin-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build the tree the directory would see: export-ignore strips tests/,
+      # .github/, lint configs (see .gitattributes).
+      - name: Export the distributable tree
+        run: |
+          mkdir -p build/wp-ops-kit
+          git archive --worktree-attributes HEAD | tar -x -C build/wp-ops-kit
+          ls -R build/wp-ops-kit | head -40
+
+      - name: Plugin Check
+        uses: wordpress/plugin-check-action@v1
+        with:
+          build-dir: build/wp-ops-kit
+          exclude-directories: examples
+          categories: |
+            general
+            plugin_repo
+            security
+            performance
