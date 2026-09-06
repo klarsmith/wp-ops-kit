@@ -14,9 +14,9 @@ use WPOpsKit\Tests\TestCase;
  * Route registration.
  *
  * The namespace is pinned deliberately. Probes address these routes by a URL
- * baked into the Deployment, and security plugins that restrict anonymous REST typically expose only
- * namespaces on its allowlist — so renaming "ops" would not break a test
- * elsewhere, it would 404 every probe in the fleet at once.
+ * baked into the Deployment, and security plugins that restrict anonymous REST
+ * typically allowlist namespaces by name — so renaming "ops" would not break a
+ * test elsewhere, it would 404 every probe in a fleet at once.
  */
 final class RestRoutesTest extends TestCase {
 

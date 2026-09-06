@@ -4,7 +4,7 @@ Makes WordPress legible to Kubernetes and Prometheus: **honest readiness**,
 **snapshot-backed metrics**, and **structured JSON logs**.
 
 Status: **0.1.2**, tagged on [GitHub](https://github.com/klarsmith/wp-ops-kit).
-Packagist and wordpress.org listings pending.
+On [Packagist](https://packagist.org/packages/klarsmith/wp-ops-kit) as `klarsmith/wp-ops-kit`; wordpress.org listing pending.
 
 ## Quick start
 
@@ -95,11 +95,8 @@ returns check names without detail, and `metrics` 404s unless a token is
 configured *and* presented.
 
 Set `WP_OPS_REST_BYPASS_AUTH=false` to leave your own rules in charge — then
-allowlist the namespace yourself, in whatever plugin restricts anonymous REST access:
-
-```php
-// add 'ops' to the plugin's allowed REST namespaces
-```
+allowlist the `ops` namespace yourself in whatever plugin or theme code restricts
+anonymous REST access (most security plugins keep such an allowlist).
 
 > **Writing your own allow-through? Return `true`, not `null`.** `null` is the
 > value the filter chain *starts* with — returning it changes nothing and the
@@ -228,7 +225,7 @@ pass therefore still has to prove on a real site:
 | `rest_pre_serve_request` ordering | The callback's own behaviour is tested; whether another plugin hooks the filter first and swallows the exposition is not knowable without a live REST stack |
 | The `E_ERROR` branch of `Logger::capture_fatal()` | `error_get_last()` only reports a real fatal |
 | `Logger::stream()` opening `php://stderr` | Tests redirect the stream to memory to read records back |
-| Readiness behind a REST-restricting security plugin | `ops` must be on its allowlist or every probe 404s — see the warning above |
+| Readiness behind a REST-restricting security plugin | `ops` must be on its allowlist (or the bypass left on) or every probe 404s — see the warning above |
 
 ## Roadmap
 
@@ -243,7 +240,7 @@ pass therefore still has to prove on a real site:
 - [x] Verbatim GPL-2.0 text in `LICENSE`
 - [x] wordpress.org `readme.txt`
 - [x] `v0.1.2` tagged
-- [ ] Packagist registration
+- [x] Packagist registration (2026-09-06)
 - [ ] wordpress.org submission
 
 See [`CHANGELOG.md`](CHANGELOG.md) for what changed between versions.
