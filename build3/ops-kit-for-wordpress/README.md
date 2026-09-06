@@ -3,10 +3,10 @@
 Makes WordPress legible to Kubernetes and Prometheus: **honest readiness**,
 **snapshot-backed metrics**, and **structured JSON logs**.
 
-Status: **0.1.5**, tagged on [GitHub](https://github.com/klarsmith/wp-ops-kit).
+Status: **0.1.4**, tagged on [GitHub](https://github.com/klarsmith/wp-ops-kit).
 On [Packagist](https://packagist.org/packages/klarsmith/wp-ops-kit) as `klarsmith/wp-ops-kit`.
-On wordpress.org the plugin is listed as **Ops Kit** (slug `ops-kit`,
-built by `bin/build-wporg-zip.sh`) because new directory slugs may not contain "wp" or "wordpress";
+On wordpress.org the plugin is listed as **Ops Kit for WordPress** (slug `ops-kit-for-wordpress`,
+built by `bin/build-wporg-zip.sh`) because new directory slugs may not start with "wp";
 the code is identical.
 
 ## Quick start
