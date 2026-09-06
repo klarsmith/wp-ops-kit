@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-09-06
+
+### Fixed
+- 0.1.5 accidentally shipped a stray `build3/` directory; removed and ignored.
+
 ## [0.1.5] - 2026-09-06
 
 ### Changed
@@ -55,6 +60,7 @@ All notable changes to this project are documented here. The format follows
   logging, `wp ops check|collect|metrics` commands.
 
 [Unreleased]: https://github.com/klarsmith/wp-ops-kit/compare/v0.1.2...HEAD
+[0.1.6]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.6
 [0.1.5]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.5
 [0.1.4]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.4
 [0.1.3]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.3

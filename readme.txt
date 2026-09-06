@@ -4,7 +4,7 @@ Tags: kubernetes, prometheus, monitoring, health-check, logging
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 8.3
-Stable tag: 0.1.5
+Stable tag: 0.1.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -94,7 +94,7 @@ Yes. Route detection uses the REST route query variable with a request-URI fallb
 
 == Changelog ==
 
-= 0.1.5 =
+= 0.1.6 =
 * Directory listing name is "Ops Kit" (slug `ops-kit`);
   Composer/GitHub name unchanged. Tested up to WordPress 7.1.
 
@@ -121,5 +121,5 @@ Yes. Route detection uses the REST route query variable with a request-URI fallb
 
 == Upgrade Notice ==
 
-= 0.1.5 =
+= 0.1.6 =
 Name change only; no configuration changes.
