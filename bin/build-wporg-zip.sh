@@ -1,9 +1,10 @@
 #!/usr/bin/env sh
 # Build the wordpress.org submission/deploy tree.
 #
-# The directory lists this plugin as "Ops Kit" with the slug
-# ops-kit (wordpress.org bans "wp" and "wordpress" in new slugs), while
-# GitHub, Packagist and Composer installs keep klarsmith/wp-ops-kit. So the
+# The directory lists this plugin as "Klarsmith Ops Kit" with the slug
+# klarsmith-ops-kit (wordpress.org bans "wp" and "wordpress" in new slugs, and
+# wants a distinctive brand-first name), while GitHub, Packagist and Composer
+# installs keep klarsmith/wp-ops-kit. So the
 # distributable tree is the git export (see .gitattributes export-ignore) under
 # the directory slug, with the main file renamed to match. Nothing inside the
 # code depends on either name.
@@ -13,7 +14,7 @@ set -eu
 
 ref="${1:-HEAD}"
 out="${2:-build}"
-slug="ops-kit"
+slug="klarsmith-ops-kit"
 
 rm -rf "$out/$slug"
 mkdir -p "$out/$slug"

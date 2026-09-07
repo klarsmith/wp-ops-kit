@@ -1,10 +1,10 @@
-=== Ops Kit ===
+=== Klarsmith Ops Kit ===
 Contributors: klarsmith
 Tags: kubernetes, prometheus, monitoring, health-check, logging
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 8.3
-Stable tag: 0.1.6
+Stable tag: 0.1.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,7 +17,7 @@ WordPress has no honest health endpoint. The front page, `admin-ajax.php` and th
 WordPress is serving its "database update required" interstitial. Every probe in common
 use calls that pod ready.
 
-Ops Kit gives a containerised WordPress site three things operators actually need:
+Klarsmith Ops Kit gives a containerised WordPress site three things operators actually need:
 
 * **Honest readiness** — `GET /wp-json/ops/v1/readyz` returns 200 only when the database
   answers, the schema matches the running core version, the object cache round-trips, and
@@ -94,9 +94,13 @@ Yes. Route detection uses the REST route query variable with a request-URI fallb
 
 == Changelog ==
 
+= 0.1.7 =
+* Directory listing name is "Klarsmith Ops Kit" (slug `klarsmith-ops-kit`);
+  Composer/GitHub name unchanged.
+
 = 0.1.6 =
-* Directory listing name is "Ops Kit" (slug `ops-kit`);
-  Composer/GitHub name unchanged. Tested up to WordPress 7.1.
+* Earlier directory listing name "Ops Kit" (superseded by 0.1.7).
+  Tested up to WordPress 7.1.
 
 = 0.1.3 =
 * Code conforms to the WordPress Coding Standards; PHPStan level 6 clean. No
@@ -121,5 +125,5 @@ Yes. Route detection uses the REST route query variable with a request-URI fallb
 
 == Upgrade Notice ==
 
-= 0.1.6 =
+= 0.1.7 =
 Name change only; no configuration changes.

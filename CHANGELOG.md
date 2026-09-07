@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-07
+
+### Changed
+- Directory listing name "Klarsmith Ops Kit" (slug `klarsmith-ops-kit`): the
+  wordpress.org review found "Ops Kit" too generic and asked for a distinctive
+  brand-first name. Composer and GitHub name stays `klarsmith/wp-ops-kit`.
+
 ## [0.1.6] - 2026-09-06
 
 ### Fixed
@@ -59,7 +66,8 @@ All notable changes to this project are documented here. The format follows
 - Initial release: readiness endpoint, snapshot-backed Prometheus metrics, JSON
   logging, `wp ops check|collect|metrics` commands.
 
-[Unreleased]: https://github.com/klarsmith/wp-ops-kit/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/klarsmith/wp-ops-kit/compare/v0.1.7...HEAD
+[0.1.7]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.7
 [0.1.6]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.6
 [0.1.5]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.5
 [0.1.4]: https://github.com/klarsmith/wp-ops-kit/releases/tag/v0.1.4
