@@ -1,0 +1,75 @@
+name: Deploy to wordpress.org
+
+# The plugin directory is a release system, not a mirror: pushing a v* tag
+# publishes trunk/ + tags/<version> to plugins.svn.wordpress.org/klarsmith-ops-kit.
+#
+# Two things differ from the GitHub/Packagist release and are easy to get wrong:
+#   - the directory slug is klarsmith-ops-kit and the main file must match it, so
+#     we deploy the built tree from bin/build-wporg-zip.sh, never the repo root;
+#   - "Stable tag" in trunk/readme.txt -- not the SVN tag -- is what users
+#     actually download, so a mismatch ships nothing while looking successful.
+# The verify step below refuses to deploy unless git tag, plugin header and
+# readme stable tag are all the same version.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing git tag to deploy (e.g. v0.1.7)"
+        required: true
+      dry-run:
+        description: "Build and diff against SVN without committing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Resolve version
+        id: version
+        run: |
+          tag="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build the wordpress.org tree
+        run: bin/build-wporg-zip.sh HEAD build
+
+      - name: Verify the release is coherent
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          dir="build/klarsmith-ops-kit"
+          header="$(sed -n 's/^ \* Version: *//p' "$dir/klarsmith-ops-kit.php")"
+          stable="$(sed -n 's/^Stable tag: *//p' "$dir/readme.txt")"
+          echo "tag=$version  plugin header=$header  readme stable tag=$stable"
+          [ "$header" = "$version" ] || { echo "::error::plugin header $header != tag $version"; exit 1; }
+          [ "$stable" = "$version" ] || { echo "::error::readme Stable tag $stable != tag $version"; exit 1; }
+
+      - name: Deploy to the plugin directory
+        uses: 10up/action-wordpress-plugin-deploy@2.3.0
+        with:
+          generate-zip: true
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: klarsmith-ops-kit
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD_DIR: build/klarsmith-ops-kit
+          ASSETS_DIR: .wordpress-org
+
+      - name: Keep the deployed zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: klarsmith-ops-kit-${{ steps.version.outputs.version }}
+          path: klarsmith-ops-kit.zip
+          if-no-files-found: error

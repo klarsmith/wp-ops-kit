@@ -17,17 +17,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Build the tree the directory would see (slug ops-kit, main
+      # Build the tree the directory would see (slug klarsmith-ops-kit, main
       # file renamed, export-ignore strips tests/ and CI config).
       - name: Build the wordpress.org tree
         run: |
           bin/build-wporg-zip.sh HEAD build
-          ls -R build/ops-kit | head -40
+          ls -R build/klarsmith-ops-kit | head -40
 
       - name: Plugin Check
         uses: wordpress/plugin-check-action@v1.1.9
         with:
-          build-dir: build/ops-kit
+          build-dir: build/klarsmith-ops-kit
           categories: |
             general
             plugin_repo
